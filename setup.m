@@ -9,7 +9,8 @@ pathentries = regexp(path, pathsep, 'split');
 disp('removing old entries from path');
 for i = 1:length(pathentries)
     if ~isempty(regexp(pathentries{i}, 'HeemskerkLab','once'))...
-       || ~isempty(regexp(pathentries{i}, 'heemskerklab','once'))
+       || ~isempty(regexp(pathentries{i}, 'heemskerklab','once'))...
+       || ~isempty(regexp(pathentries{i}, 'Heemskerk lab','once'))
         rmpath(pathentries{i});
     end
 end
