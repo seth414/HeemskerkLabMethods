@@ -355,18 +355,17 @@ classdef Position < handle
             end
         end
 
-        function [dataTable, writename] = cellDataToTable(this,meta)
+        function [dataTable, writename] = cellDataToTable(this)
             ch_i = this.nucChannel + 1;
             cellid = (1:sum(this.ncells))';
             pos = vertcat(this.cellData.XY); % make sure position's unit is correct
             chs = vertcat(this.cellData.nucLevel);
             POSITION_X = pos(:, 1);
             POSITION_Y = pos(:, 2);
-            POSITION_Z = vertcat(this.cellData.Z)*meta.zres/meta.xres; %z coordinates should be converted to the same units as x and y
+            POSITION_Z = vertcat(positions(pi).cellData.Z)*meta.zres/meta.xres;
             FRAME = repelem((1:this.nTime) - 1, this.ncells)'; % trackmate is 0-based
             MEAN_INTENSITY_CH = chs(:, ch_i);
-            dataTable = table(POSITION_X, POSITION_Y, POSITION_Z, FRAME, MEAN_INTENSITY_CH);
-            dataTable.ID = cellid;
+            dataTable = table(cellid, POSITION_X, POSITION_Y, POSITION_Z, FRAME, MEAN_INTENSITY_CH);
             writename = sprintf('data_table_p%.4d.csv',this.ID-1);
             % writetable(dataTable,writename, 'WriteRowNames', false);
         end
