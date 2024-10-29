@@ -224,7 +224,9 @@ for jj = 1:nCells
         z = cellinfo(zi,1); % z slice
         ci = cellinfo(zi,2); %cell index
         pixelindices{zi} = allmasks(z).nucmask{ci} + (z - 1)*m*n;
-        cytoindices{zi} = allmasks(z).cytmask{ci} + (z - 1)*m*n;
+        if ~isempty(allmasks(z).cytmask)
+            cytoindices{zi} = allmasks(z).cytmask{ci} + (z - 1)*m*n;
+        end
     end
     %find cell centroid in z
     npixels = cellfun(@numel,pixelindices);

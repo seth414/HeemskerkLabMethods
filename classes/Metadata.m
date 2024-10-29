@@ -248,8 +248,6 @@ classdef Metadata
                 this.XYZ = this.XYZ*10^3; %mm->um
                 this.nPositions = size(this.XYZ, 1);
                 fclose(fid);
-            else
-                warning('Fusion meta file not found');
             end
             
             if strcmp(extension,'.ims') && abs(this.xres - 0.3015) < 0.01

@@ -352,6 +352,9 @@ end
 function bmc = bmColors()
 % Return a structure of all colorschemes: name, scheme type, RGB values, number of nodes.
 % Order: first sort by <typ>, then case-insensitive sort by <str>:
+bmc(36).str = 'RdBkBu';
+bmc(36).typ = 'Diverging';
+bmc(36).rgb = [253,219,199;244,165,130;239,138,98;214,96,77;202,0,32;178,24,43;103,0,31;8,8,8;5,48,97;33,102,172;5,113,176;67,147,195;103,169,207;146,197,222;209,229,240];
 bmc(35).str = 'YlOrRd';
 bmc(35).typ = 'Sequential';
 bmc(35).rgb = [255,255,204;255,255,178;255,237,160;254,217,118;254,204,92;254,178,76;253,141,60;252,78,42;240,59,32;227,26,28;189,0,38;177,0,38;128,0,38];

@@ -3,7 +3,7 @@ function aligned = alignImage(im1, im2, shiftyx)
 %the link between fixed and live points
 
 m1 = size(im1,1); n1 = size(im1,2); m2 = size(im2,1); n2 = size(im2,2);
-mn = min([m1,n1], [m2,n2]);
+% mn = min([m1,n1], [m2,n2]);
 % m = mn(1); n = mn(2);
 % im2 = im2(1:mn(1), 1:mn(2));
 

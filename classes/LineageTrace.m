@@ -496,6 +496,7 @@ classdef LineageTrace < handle
             
             M.fateMarkers = cell(1,npos);
             M.positionIdx = cell(1,npos);
+            M.verified = cell(1,npos);
             
             for pidx = positionIdx
                 nucChannel = this.live_position(pidx).nucChannel;
@@ -522,11 +523,13 @@ classdef LineageTrace < handle
                 end
                 
                 nchannels = length(hists(1).fateMarkers);
-                fm = NaN(nchannels,nhists);
+                fm = NaN(nchannels,nhists); ver = NaN(1,nhists);
                 for ii = 1:nhists
                     fm(:,ii) = hists(ii).fateMarkers';
+                    ver(ii) = hists(ii).verified;
                 end
                 M.fateMarkers{pidx} = fm;
+                M.verified{pidx} = ver;
                 M.positionIdx{pidx} = pidx*ones(1,nhists);
             end
             
@@ -535,6 +538,7 @@ classdef LineageTrace < handle
             end
             M.fateMarkers = cell2mat(M.fateMarkers);
             M.positionIdx = cell2mat(M.positionIdx);
+            M.verified = cell2mat(M.verified);
             
         end
         

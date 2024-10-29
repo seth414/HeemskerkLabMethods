@@ -18,9 +18,9 @@ scriptPath = fileparts(matlab.desktop.editor.getActiveFilename);
 % raw data location, modify if not the same as the location of this script
 dataDir = scriptPath; 
 
-makeStitchedImages = false;
+makeStitchedImages = true;
 makeMIPs = false;
-writeZslices = true;
+writeZslices = false;
 
 
 % -----------metadata------------------------
@@ -29,9 +29,9 @@ nucChannel = 0;
 %description of conditions in order (should be alphabetical order that the
 %system finds image files but usually that is the same as the order of
 %imaging)
-conditions = {'-DOX','+DOX'};
+conditions = {'LDN0','LDN100'}; %cells are treated with 100 ng/mL BMP4 and variable LDN; LDN dose given here in nM
 %names of channels, e.g. channelLabel = {'DAPI','SMAD23','pAKT','SOX17'};
-channelLabel = {'DAPI','SMAD23','pAKT','SOX17'};
+channelLabel = {'H2B','SMAD4'}; %H2B::RFP nuclear marker in the first channel; GFP::SMAD4 in the second channel 
 %if the number of positions per condition varies between conditions, set it
 %manually; e.g., posPerCondition = [4 4 4 4 5]. If left empty ([]) then
 %posPerCondition divides the number of positions by the number of
@@ -54,33 +54,32 @@ save(fullfile(dataDir,'meta.mat'),'meta');
 ngrids = [];
 
 gridsize = [2 2]; %size of the stitched image grid (height by width)
-montageOverlap = 15; %percent overlap between adjacent images
+montageOverlap = 18; %percent overlap between adjacent images
 montageFusionGrid = false; %set to true if the matlab script multiMontageFusion was used to generate positions for the grids
 
 %stitching method; options: weightedsample, distweight, intensityweight, randomsample
-%default and generally best option is weightedsample
+%default and generally best option is weightedsample; distweight is
+%similarly good and faster but stitching grid lines may be more visible
+%with this option
 stitchmode = 'weightedsample';
 %file type of MIPs -> if segmenting or quantifying MIPs use .tif, otherwise
-%.jpg results in much smaller files with visually almost indistuinguishable
-%images
+%.jpg results in much smaller files for visualization & quality control
 mipext = '.jpg';
 
 stitchOptions = struct(... 
     'gridsize', gridsize,...
     'montageOverlap', montageOverlap,...
     'stitchmode', stitchmode,...
-    'ext', '',... %image filename extension (.nd2, .ims, .lif, .tif) or leave empty to automatically look for files
+    'ext', '',... %image filename extension (.nd2, .ims, .lif, .vsi, .czi, .tif) or leave empty to automatically look for files
     'montageFusionGrid', montageFusionGrid,... %true if multiMontageFusion script was used to generate positions
     'nucChannel', nucChannel,...
     'ngrids', ngrids,...
     'tmax',[],... %set maximum number of time points to stitch, or leave empty
     'channelLabel',{channelLabel},...
-    'doFlatFieldCorrection', true,... %optionally do flat field correction for nikon images
     'conditions',{conditions},...
-    'dichroicCorrectionChannels', [],... %channels for which dicroic correction is needed
     'mipext', mipext,...
-    'snakeorder','leftright',... %leftright or bottomtop; sometimes Fusion-generated grids snake left to right, sometimes bottom to top
-    'orderFromFilename',false); %use if panels are broken up from a Nikon-stitched large image and have suffixes describing position on the grid
+    'snakeorder','leftright');%,... %leftright or bottomtop; sometimes Fusion-generated grids snake left to right, sometimes bottom to top
+    % 'orderFromFilename',false); %use if panels are broken up from a Nikon-stitched large image and have suffixes describing position on the grid
 
 
 

@@ -29,9 +29,9 @@ opts = struct(...
     'cytoMargin',           0,... %margin from the nucleus to the cytoplasmic annulus
     'nucShrinkage',         1,... %number of pixels by which to shrink the nuclear mask
     'cytoplasmicLevels',    true,... %boolean for whether to read out cytoplasmic levels
-    'fgChannel',            [],... %channel used to segment foreground vs background; remove field or make empty if not applicable
-    'segFG',                [],... %Ilastik class defining the foreground
-    'junkID',               []); %(optional) Ilastik class defining bright junk
+    'fgChannel',            1,... %channel used to segment foreground vs background; remove field or make empty if not applicable
+    'segFG',                1,... %Ilastik class defining the foreground
+    'junkID',               3); %(optional) Ilastik class defining bright junk
 
 %options for linking 2D masks over z slices to make 3D masks
 zopts = struct(...
@@ -144,9 +144,9 @@ toc
 
 %parpool(4);
 
-allpmasks = {};
-allbgmasks = {};
-allcellData = {};
+allpmasks = cell(1,npos);
+allbgmasks = cell(1,npos);
+allcellData = cell(1,npos);
 
 parfor pidx = 1:npos
     
@@ -242,8 +242,6 @@ end
 
 function consolidate_cp_masks(dataDir,barenames)
 
-disp('consolidating cellpose masks')
-
 outputdir = fullfile(dataDir, 'cp_masks');
 if ~exist(outputdir,'dir'), mkdir(outputdir); end
 
@@ -253,9 +251,9 @@ if ~exist(outputdir,'dir'), mkdir(outputdir); end
 prefix = barenames{1}; %sprintf(bare,0,nucChannel,0);
 name = [prefix,sprintf('_z%.4d_cp_masks.png',0)];
 readname = fullfile(dataDir,name);
-writename = fullfile(outputdir,name);
+% writename = fullfile(outputdir,name);
 
-if ~exist(readname,"file") && exist(writename,"file")
+if ~exist(readname,"file")
     doconsolidate = false;
 else
     doconsolidate = true;
@@ -264,6 +262,7 @@ end
 npos = length(barenames);
 
 if doconsolidate
+    disp('consolidating cellpose masks')
     for ii = 1:npos
 %         prefix = sprintf(bare,ii-1,nucChannel,0);
         prefix = barenames{ii};
