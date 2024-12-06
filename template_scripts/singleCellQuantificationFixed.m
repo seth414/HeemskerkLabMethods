@@ -58,6 +58,14 @@ for pi = 1:npos
 end
 toc
 
+%load info for alignment between rounds of iterative imaging
+fname = fullfile(baseDir,'alignmentInfo.mat');
+if exist(fname,'file')
+    load(fname,'shiftyxs','zshifts','zscales')
+else
+    shiftyxs = []; zshifts = []; zscales = [];
+end
+
 %% iterate over colonies, folders, and channels, and read out intensities
 
 if strcmp(imageType,'MP')
@@ -70,13 +78,13 @@ tic
 %parpool(4)
 parfor pi = 1:metas{r1}.nPositions
 
-    condi = find(pi >= metas{r1}.conditionStartPos,1,'last'); % condition index
+    condi = find(pi >= metas{r1}.conditionStartPos,1,'last'); %#ok<PFBNS> % condition index
           
     fprintf('colony %d of %d\n',pi,npos)
 
     if strcmp(imageType,'MP')
         positions(pi) = Colony(metas{r1}, pi);
-        positions(pi).setRadius(radii(condi), metas{r1}.xres);
+        positions(pi).setRadius(radii(condi), metas{r1}.xres); %#ok<PFBNS>
         positions(pi).well = condi;
     elseif strcmp(imageType,'disordered')
         positions(pi) = Position(metas{r1}, pi);
@@ -105,13 +113,16 @@ parfor pi = 1:metas{r1}.nPositions
         NCratio = NaN(ncells, nchannels); 
         BG = NaN(1,nchannels);
         for ci = 1:nchannels
-            img = positions(pi).loadImage(dataDirs{ri},ci-1,1);
+            img = positions(pi).loadImage(dataDirs{ri},ci-1,1); %#ok<PFBNS>
             
-            if ri > 1 %%%TODO - add code to find and load the alignment info for this%%%
-                %apply shift and warping to the image stack
+            if ri > 1 %for rounds 2 and later, align the images to the first round before reading out intensities
+                %apply rigid shift to the image stack
+                shiftyx = shiftyxs(pi,:,ri-1); %#ok<PFBNS>
                 img = xyalignImageStack(img,shiftyx);
                 %apply z shift + scaling
-                img = zShiftScale(img,shiftz,scalez,nz1);
+                shiftz = zshifts(pi,ri-1); %#ok<PFBNS>
+                scalez = zscales(pi,ri-1); %#ok<PFBNS>
+                img = zShiftScale(img,shiftz,scalez,metas{r1}.nZslices);
             end
             
             [nL,cL,ncR,bg] = readIntensityValues(img,masks{pi},bgmasks{pi});
@@ -160,7 +171,6 @@ load(fullfile(baseDir,'meta_combined.mat'),'meta')
 
 
 %% Load live data, make LineageTrace object
-% rename LineageTrace? kind of a stupid name
 
 %specify the path to the live data folder - here I assume that the fixed
 %data and live data are in the same parent directory and the name of the
@@ -181,9 +191,10 @@ fixedPos = fixedPos.positions;
 
 channelLabels = fixedMeta.channelLabel;
 
+npos = length(livePos);
+
 
 %% initialize lineage trace & map live to fixed
-% lt = LineageTrace(liveDir,fixedDir);
 lt = LineageTrace(livePos, fixedPos, liveMeta, fixedMeta, liveDir, fixedDir);
 
 close all
@@ -202,12 +213,7 @@ for ii = positionIdx
 end
 close all
 
-save(fullfile(baseDir,'lt.mat'),'lt')
-
-%% Or load existing LineageTrace object
-load(fullfile(baseDir,'lt.mat'))
-
-%% load validated tracking results & assign fate
+% load validated tracking results & assign fate
 load(fullfile(liveDir,'validatedTracking.mat'),'verified')
 
 %fields of cellData for which to build histories of live cell data
@@ -235,7 +241,7 @@ for pidx = 1:npos
     
     for ii = 1:length(hists{pidx})
         %mark each cell as verified or not
-        if ~isempty(verified{pidx}) %%% SOLVE THIS BY MAKING AND SAVING VERIFIED VARIABLE AT THE TIME OF AUTOMATED TRACKING %%%
+        if ~isempty(verified{pidx})
             hists{pidx}(ii).verified = verified{pidx}(hists{pidx}(ii).CellIdxs(end));
         else
             hists{pidx}(ii).verified = false;
@@ -249,52 +255,33 @@ for pidx = 1:npos
         end
         fixedIdx = find(mapped == I);
         hists{pidx}(ii).fateMarkers = lt.fixed_position(pidx).cellData.nucLevel(fixedIdx,:);
-%         hists{pidx}(ii).labels = lt.fixed_position(pidx).cellData.labels(fixedIdx);
     end
     lt.histories{pidx} = hists{pidx};
 end
 
+save(fullfile(baseDir,'lt.mat'),'lt')
 
-%%
+%% Or load existing LineageTrace object
+load(fullfile(baseDir,'lt.mat'))
 
-opts = struct('peakremoval','heuristic','domedfilt',false);
+%% make a matrices of signaling histories and fixed-cell data
+
+%options for constructing single-cell histories
+%if interpolatemissing is set to false, the other options are ignored
+opts = struct('interpolatemissing',false,... %option to interpolate values at missing times (e.g., because of gap-closing the in tracking)
+    'peakremoval','none',... %option to detect and remove peaks in nuclear intensity or nuclear-cytoplasmic ratio because of cell division
+    'domedfilt',false); %option to median filter signaling histories
 
 Mats = lt.histories2mats(1:npos,opts);
 
-%%
+%matrix of single-cell histories of nuclear-cytoplasmic SMAD4 readout
+SMAD4 = Mats.NCratio(:,:,2);
+%vector of pSMAD1 readout values
+pSMAD1 = Mats.fateMarkers(3,:);
+%boolean vector indicating whether each signaling history is manually
+%validated/corrected
+verified = Mats.verified;
 
-st = 1:lt.live_position(1).nTime;
-rs = NaN(size(st));
-
-for ti = 1:length(st)
-    ts = st(ti):lt.live_position(1).nTime;
-    % ts = st(ti);
-    X = Mats.NCratio(:,:,2);
-    x = mean(X(ts,:),1)';
-    y = Mats.fateMarkers(3,:)';
-    
-    % y = (Mats.fateMarkers(3,:).*Mats.fateMarkers(1,:))';
-    % z = Mats.fateMarkers(1,:)';
-    z = Mats.nucArea(end,:)';
-    
-    mask = [];
-    
-    R = corrcoef([x,y]);
-    R = R(1,2);
-    rs(ti) = R;
-end
-
-% figure('Position',figurePosition(560,560))
-plot(st,rs,'-o','LineWidth',3)
-xlabel('start time'); ylabel('corr coeff')
-cleanSubplot(18)
-
-% figure
-% colorscatter(x,y,z)
-% xlabel('SMAD4'); ylabel('pSMAD1')
-% title(sprintf('t%d-t%d; R=%.3g',ts(1),ts(end),R))
-% cleanSubplot(14)
-% xlim([0.25,1.6])
 
 
 

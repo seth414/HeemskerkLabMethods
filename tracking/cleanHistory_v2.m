@@ -38,9 +38,17 @@ if ~isfield(opts,'domedfilt')
     opts.domedfilt = false;
 end
 if ~isfield(opts,'peakremoval')
-    opts.peakremoval = 'heuristic';
+    %option to detect and remove peaks in the signal due to cell division
+    %that indicate unreliable quantification of nuclear level or nuclear to
+    %cytoplasmic ratio due to nuclear envelope breakdown and chromatin
+    %condensation
+    opts.peakremoval = 'none';
 end
-
+if ~isfield(opts,'interpolatemissing')
+    %some tracks are not defined over all time points, gaps in the history
+    %may be interpolated if desired
+    opts.interpolatemissing = false;
+end
 
 minval = 0;
 
@@ -54,64 +62,66 @@ time = histories(idx).Time;
 ntime = time(end);
 tvec = (1:ntime)';
 
-%collect nuclear statistics and interpolate missing data
-A = interp1(time,histories(idx).nucArea,tvec);
-ratio = histories(idx).nucMajorAxis./histories(idx).nucMinorAxis;
-R = interp1(time,ratio,tvec);
-N = interp1(time,histories(idx).nucLevel(:,nucChannel+1),tvec);
-X = interp1(time,histories(idx).(opts.field)(:,channel+1),tvec);
-
-if strcmp(opts.peakremoval,'heuristic')
-    %heuristic cell division detection
-    criteria = (A<mean(A,'omitnan') - 2*std(A,'omitnan')) + (R>2.5) +...
-        (X>mean(X,'omitnan') + 2*std(X,'omitnan')) +...
-        (N>mean(N,'omitnan') + 2*std(N,'omitnan'));
-    criteria = (criteria > 1) | X > maxval | X < minval;
-    criteria = conv(criteria,ones(8,1),'same');
-    %remove values around cell division peaks and interpolate
-    X = X(criteria == 0);
-    vt = tvec(criteria == 0);
-    v = interp1(vt,X,tvec,'linear');
-elseif strcmp(opts.peakremoval,'labelbased')
-    %identify cell division based on labels in celldata (generally based on
-    %ilastik object classification of cells using image data)
-    L = ones(ntime,1);
-    L(time) = histories(idx).labels;
-    criteria = L > 1;
+if opts.interpolatemissing
+    %collect nuclear statistics and interpolate missing data
+    A = interp1(time,histories(idx).nucArea,tvec);
+    ratio = histories(idx).nucMajorAxis./histories(idx).nucMinorAxis;
+    R = interp1(time,ratio,tvec);
+    N = interp1(time,histories(idx).nucLevel(:,nucChannel+1),tvec);
+    X = interp1(time,histories(idx).(opts.field)(:,channel+1),tvec);
     
-    criteria = conv(criteria,ones(8,1),'same');
-    X = X(criteria == 0);
-    vt = tvec(criteria == 0);
-    v = interp1(vt,X,tvec,'linear');
-elseif strcmp(opts.peakremoval,'none')
-    %do not remove cell division peaks
-%     v = X;
-    criteria = X > maxval | X < minval;
-    X = X(criteria == 0);
-    vt = tvec(criteria == 0);
-    v = interp1(vt,X,tvec,'linear');
-end
-%interpolate NaN values
-nonans = find(~isnan(v));
-if ~isempty(nonans)
-v(nonans(end):end) = v(nonans(end)); %extrapolate (nearest, not linear)
-v(1:nonans(1)) = v(nonans(1)); %extrapolate (nearest, not linear)
-
-if opts.domedfilt
-    v = medfilt1(v,'omitnan','truncate');
-end
-
-%additional NaN value interpolation -> why do we need this? is it possible
-%to get nans from median filtering if there were none before, or is this
-%not needed anymore?
-if any(isnan(v))
+    if strcmp(opts.peakremoval,'heuristic')
+        %heuristic cell division detection
+        criteria = (A<mean(A,'omitnan') - 2*std(A,'omitnan')) + (R>2.5) +...
+            (X>mean(X,'omitnan') + 2*std(X,'omitnan')) +...
+            (N>mean(N,'omitnan') + 2*std(N,'omitnan'));
+        criteria = (criteria > 1) | X > maxval | X < minval;
+        criteria = conv(criteria,ones(8,1),'same');
+        %remove values around cell division peaks and interpolate
+        X = X(criteria == 0);
+        vt = tvec(criteria == 0);
+        v = interp1(vt,X,tvec,'linear');
+    elseif strcmp(opts.peakremoval,'labelbased')
+        %identify cell division based on labels in celldata (generally based on
+        %ilastik object classification of cells using image data)
+        L = ones(ntime,1);
+        L(time) = histories(idx).labels;
+        criteria = L > 1;
+        
+        criteria = conv(criteria,ones(8,1),'same');
+        X = X(criteria == 0);
+        vt = tvec(criteria == 0);
+        v = interp1(vt,X,tvec,'linear');
+    elseif strcmp(opts.peakremoval,'none')
+        %do not remove cell division peaks
+    %     v = X;
+        criteria = X > maxval | X < minval;
+        X = X(criteria == 0);
+        vt = tvec(criteria == 0);
+        v = interp1(vt,X,tvec,'linear');
+    end
+    %interpolate NaN values
     nonans = find(~isnan(v));
-    v1 = v(nonans);
-    v = interp1(nonans,v1,tvec,'linear');
-    v(1:nonans(1)) = v(nonans(1));
-    v(nonans(end):end) = v(nonans(end));
-end
-
+    if ~isempty(nonans)
+    v(nonans(end):end) = v(nonans(end)); %extrapolate (nearest, not linear)
+    v(1:nonans(1)) = v(nonans(1)); %extrapolate (nearest, not linear)
+    
+    if opts.domedfilt
+        v = medfilt1(v,'omitnan','truncate');
+    end
+    
+    if any(isnan(v))
+        nonans = find(~isnan(v));
+        v1 = v(nonans);
+        v = interp1(nonans,v1,tvec,'linear');
+        v(1:nonans(1)) = v(nonans(1));
+        v(nonans(end):end) = v(nonans(end));
+    end
+    
+    end
+else
+    v = NaN(size(tvec));
+    v(time) = histories(idx).(opts.field)(:,channel+1);
 end
 
 end
